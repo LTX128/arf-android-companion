@@ -38,15 +38,39 @@ object KeeloqBleProtocol {
         return buf.array()
     }
 
-    fun encodeResult(result: KlBfResult): ByteArray {
+    fun encodeCandidate(result: KlBfResult): ByteArray {
         val buf = ByteBuffer.allocate(27).order(ByteOrder.LITTLE_ENDIAN)
         buf.put(MSG_KL_BF_RESULT)
-        buf.put(if (result.found) 1.toByte() else 0.toByte())
+        buf.put(1.toByte())
         buf.putLong(result.mfkey)
         buf.putLong(result.devkey)
         buf.putInt(result.cnt)
-        buf.putInt(result.elapsedMs.toInt())
+        buf.putInt(0)
         buf.put(result.learnType.toByte())
+        return buf.array()
+    }
+
+    fun encodeBfComplete(candidateCount: Int, elapsedMs: Long): ByteArray {
+        val buf = ByteBuffer.allocate(27).order(ByteOrder.LITTLE_ENDIAN)
+        buf.put(MSG_KL_BF_RESULT)
+        buf.put(2.toByte())
+        buf.putLong(0L)
+        buf.putLong(0L)
+        buf.putInt(candidateCount)
+        buf.putInt(elapsedMs.toInt())
+        buf.put(0.toByte())
+        return buf.array()
+    }
+
+    fun encodeNotFound(elapsedMs: Long): ByteArray {
+        val buf = ByteBuffer.allocate(27).order(ByteOrder.LITTLE_ENDIAN)
+        buf.put(MSG_KL_BF_RESULT)
+        buf.put(0.toByte())
+        buf.putLong(0L)
+        buf.putLong(0L)
+        buf.putInt(0)
+        buf.putInt(elapsedMs.toInt())
+        buf.put(0.toByte())
         return buf.array()
     }
 

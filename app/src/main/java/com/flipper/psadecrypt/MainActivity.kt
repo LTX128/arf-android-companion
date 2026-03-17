@@ -119,6 +119,66 @@ class MainActivity : AppCompatActivity(), FlipperBleClient.Listener {
             showFragment("psa")
             bottomNav.selectedItemId = R.id.nav_psa_decrypt
         }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        val cpuCount = Runtime.getRuntime().availableProcessors()
+        appendLog("App started, $cpuCount CPU cores, SDK ${Build.VERSION.SDK_INT}")
+    }
+
+    // --- Fragment navigation ---
+
+    private fun clearFragmentRefs() {
+        psaFragment = null
+        keeloqFragment = null
+        fileManagerFragment = null
+        remoteControlFragment = null
+        subGhzSettingsFragment = null
+    }
+
+    private fun showPsaDecrypt() {
+        clearFragmentRefs()
+        val frag = PsaDecryptFragment()
+        psaFragment = frag
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, frag)
+            .commit()
+        supportActionBar?.title = "PSA Decrypt"
+    }
+
+    private fun showKeeloqDecrypt() {
+        clearFragmentRefs()
+        val frag = KeeloqDecryptFragment()
+        keeloqFragment = frag
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, frag)
+            .commit()
+        supportActionBar?.title = "KeeLoq Decrypt"
+    }
+
+    private fun showFileManager() {
+        clearFragmentRefs()
+        val frag = FileManagerFragment()
+        fileManagerFragment = frag
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, frag)
+            .commit()
+        supportActionBar?.title = "File Manager"
+    }
+
+    private fun showRemoteControl() {
+        clearFragmentRefs()
+        val frag = RemoteControlFragment()
+        remoteControlFragment = frag
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, frag)
+            .commit()
+        supportActionBar?.title = "Remote Control"
     }
 
     private fun animateHeaderIn() {
@@ -192,6 +252,20 @@ class MainActivity : AppCompatActivity(), FlipperBleClient.Listener {
     ) { perms ->
         if (perms.values.all { it }) startBleScan()
         else appendLog("BLE permissions denied")
+    ) { results ->
+        appendLog("Permission results: $results")
+        val bleGranted = results.filterKeys { it != Manifest.permission.POST_NOTIFICATIONS }.values.all { it }
+        if (bleGranted) startBleScan()
+        else {
+            bleStatusText.text = "BLE permissions denied"
+            appendLog("BLE permissions denied")
+        }
+    }
+
+    private val notifPermLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        appendLog("POST_NOTIFICATIONS permission: $granted")
     }
 
     private fun requestPermissionsAndScan() {
@@ -221,6 +295,11 @@ class MainActivity : AppCompatActivity(), FlipperBleClient.Listener {
             startBleScan()
         } else {
             permLauncher.launch(needed.toTypedArray())
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        val needed = perms.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
     }
 

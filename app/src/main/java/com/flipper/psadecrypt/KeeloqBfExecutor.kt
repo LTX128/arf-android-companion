@@ -36,13 +36,30 @@ class KeeloqBfExecutor(threadCount: Int = 0) {
         }
     }
 
+    fun isCancelled(): Boolean = cancelled.get()
+
+    fun getCandidateCount(): Int = bf.nativeGetCandidateCount()
+
+    fun getCandidate(index: Int): KlBfResult? {
+        val out = LongArray(4)
+        if (!bf.nativeGetCandidate(index, out)) return null
+        return KlBfResult(
+            found = true,
+            mfkey = out[0],
+            devkey = out[1],
+            cnt = out[2].toInt(),
+            learnType = out[3].toInt()
+        )
+    }
+
     fun run(
         learningType: Int,
         serial: Int, fix: Int,
         hop1: Int, hop2: Int,
         rangeStart: Long, rangeEnd: Long
-    ): KlBfResult {
+    ): Long {
         cancelled.set(false)
+        bf.nativeResetCandidates()
         for (i in 0 until numThreads) {
             bf.nativeResetThread(i)
         }
@@ -51,49 +68,29 @@ class KeeloqBfExecutor(threadCount: Int = 0) {
         val rangeSize = rangeEnd - rangeStart
         val chunkSize = rangeSize / numThreads
 
-        val futures = mutableListOf<Future<KlBfResult>>()
+        val futures = mutableListOf<Future<*>>()
 
         for (i in 0 until numThreads) {
             val chunkStart = rangeStart + (chunkSize * i)
             val chunkEnd = if (i == numThreads - 1) rangeEnd else chunkStart + chunkSize
 
             val threadIdx = i
-            val future = executor.submit<KlBfResult> {
+            val future = executor.submit {
                 val threadBf = KeeloqBruteForce()
-                val resultOut = LongArray(3)
-                val found = threadBf.nativeBruteForce(
+                threadBf.nativeBruteForce(
                     learningType, serial, fix, hop1, hop2,
                     chunkStart.toInt(), chunkEnd.toInt(),
-                    threadIdx,
-                    resultOut
+                    threadIdx
                 )
-                if (found) {
-                    cancel()
-                    KlBfResult(
-                        found = true,
-                        mfkey = resultOut[0],
-                        devkey = resultOut[1],
-                        cnt = resultOut[2].toInt(),
-                        elapsedMs = System.currentTimeMillis() - startTime,
-                        learnType = learningType
-                    )
-                } else {
-                    KlBfResult(found = false, elapsedMs = System.currentTimeMillis() - startTime)
-                }
             }
             futures.add(future)
         }
 
-        var winner: KlBfResult? = null
         for (future in futures) {
-            val result = future.get()
-            if (result.found && winner == null) {
-                winner = result
-            }
+            future.get()
         }
 
-        val elapsed = System.currentTimeMillis() - startTime
-        return winner ?: KlBfResult(found = false, elapsedMs = elapsed)
+        return System.currentTimeMillis() - startTime
     }
 
     fun shutdown() {
